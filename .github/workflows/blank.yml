@@ -1,0 +1,45 @@
+name: Update
+
+on:
+  workflow_dispatch:
+  watch:
+    types: [started]
+  schedule:
+    - cron: 0 * * * *
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  Update:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: GetTime
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y-%m-%d %H:%M:%S CST')"
+
+    - name: Update
+      run: |
+        # 央视源
+        rm -f *.m3u && wget https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u -O IPTV.m3u
+        echo "#EXTM3U" > CCTV.m3u && awk '/CCTV/{print; getline; print}' IPTV.m3u >> CCTV.m3u
+
+        # 卫视源
+        echo "#EXTM3U" > CNTV.m3u && awk '/卫视频道/{print; getline; print}' IPTV.m3u >> CNTV.m3u
+        rm -rf IPTV.m3u
+
+    - name: Clean
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git checkout --orphan latest_branch
+        git add -A
+        git commit -am "${{ steps.date.outputs.date }}"
+        git branch -D main
+        git branch -m main
+
+    - name: Push
+      run: git push -f origin main
